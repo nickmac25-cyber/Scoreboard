@@ -1289,11 +1289,16 @@
       // Fetch real team PPG/PAPG & streaks in parallel with scoreboards
       const standingsPromise = fetchLiveStandingsStats();
 
+      // Cover Yesterday (-1), Today (0), and Upcoming starting immediately with Tomorrow (+1 through +6)
       const dates = [
         { bucket: 'yesterday', ymd: formatYYYYMMDD(-1) },
         { bucket: 'today', ymd: formatYYYYMMDD(0) },
+        { bucket: 'upcoming', ymd: formatYYYYMMDD(1) },
         { bucket: 'upcoming', ymd: formatYYYYMMDD(2) },
+        { bucket: 'upcoming', ymd: formatYYYYMMDD(3) },
         { bucket: 'upcoming', ymd: formatYYYYMMDD(4) },
+        { bucket: 'upcoming', ymd: formatYYYYMMDD(5) },
+        { bucket: 'upcoming', ymd: formatYYYYMMDD(6) },
       ];
 
       let fetchedGames = [];
@@ -1361,9 +1366,16 @@
       // Run Handicapping & Prop Engine on every game
       combinedGames = combinedGames.map(g => evaluateHandicappingModel(g));
 
-      // Sort: Live first, then Upcoming, then Final
+      // Sort: Live first, then Upcoming chronologically (tomorrow first), then Final (most recent first)
       const stateOrder = { in: 0, pre: 1, post: 2 };
-      combinedGames.sort((a, b) => (stateOrder[a.state] ?? 1) - (stateOrder[b.state] ?? 1));
+      combinedGames.sort((a, b) => {
+        const orderDiff = (stateOrder[a.state] ?? 1) - (stateOrder[b.state] ?? 1);
+        if (orderDiff !== 0) return orderDiff;
+        const tA = new Date(a.startTime || 0).getTime();
+        const tB = new Date(b.startTime || 0).getTime();
+        if (a.state === 'post') return tB - tA;
+        return tA - tB;
+      });
 
       appState.games = combinedGames;
       setCache('hydrated_slate', {
@@ -1978,6 +1990,68 @@
       );
     }
 
+    // Always resolve each pinned favorite team's LIVE game or immediate NEXT upcoming game regardless of active filters
+    function getNextGameForFavorite(fav) {
+      const teamGames = appState.games.filter(
+        g => g.sport === fav.sport && (g.away.abbr === fav.abbr || g.home.abbr === fav.abbr)
+      );
+      if (teamGames.length === 0) return null;
+
+      // 1. Live game takes highest priority
+      const liveGame = teamGames.find(g => g.state === 'in');
+      if (liveGame) return liveGame;
+
+      // 2. Earliest upcoming game (tomorrow / next on schedule)
+      const upcomingGames = teamGames
+        .filter(g => g.state === 'pre')
+        .sort((a, b) => new Date(a.startTime || 0).getTime() - new Date(b.startTime || 0).getTime());
+      if (upcomingGames.length > 0) return upcomingGames[0];
+
+      // 3. Most recent completed game if no upcoming game is posted yet
+      const finalGames = teamGames
+        .filter(g => g.state === 'post')
+        .sort((a, b) => new Date(b.startTime || 0).getTime() - new Date(a.startTime || 0).getTime());
+      return finalGames[0] || null;
+    }
+
+    function getPinnedNextGames() {
+      const seenIds = new Set();
+      const pinned = [];
+      for (const fav of appState.prefs.favorites) {
+        const nextGame = getNextGameForFavorite(fav);
+        if (nextGame && !seenIds.has(nextGame.id)) {
+          seenIds.add(nextGame.id);
+          pinned.push(nextGame);
+        }
+      }
+      return pinned;
+    }
+
+    function formatShortNextGameLabel(game) {
+      if (!game) return 'Off';
+      if (game.state === 'in') {
+        return `${game.away.abbr} ${game.away.score} - ${game.home.abbr} ${game.home.score}`;
+      }
+      if (game.state === 'post') {
+        return `F: ${game.away.abbr} ${game.away.score}-${game.home.score}`;
+      }
+      const opp = game.away.abbr;
+      const start = new Date(game.startTime);
+      if (!isNaN(start.getTime())) {
+        const now = new Date();
+        const isToday = start.toDateString() === now.toDateString();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        const isTomorrow = start.toDateString() === tomorrow.toDateString();
+        const timeStr = start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        if (isToday) return `Today ${timeStr}`;
+        if (isTomorrow) return `Tmrw ${timeStr}`;
+        const dayStr = start.toLocaleDateString([], { weekday: 'short', month: 'numeric', day: 'numeric' });
+        return `${dayStr} ${timeStr}`;
+      }
+      return game.statusText.replace(' EST', '');
+    }
+
     function updateHeaderTelemetry() {
       const badge = document.getElementById('dataSourceBadge');
       if (appState.usingFallback) {
@@ -2010,32 +2084,34 @@
     }
 
     function renderFavoriteTickers() {
-      const favGames = appState.games.filter(isFavoriteGame);
       const desktopEl = document.getElementById('headerFavTicker');
       const mobileEl = document.getElementById('mobileFavTicker');
 
       const chipsHtml = appState.prefs.favorites.map(fav => {
-        const g = favGames.find(game => game.sport === fav.sport && (game.away.abbr === fav.abbr || game.home.abbr === fav.abbr));
+        const g = getNextGameForFavorite(fav);
         if (!g) {
           return `
             <button onclick="openSettingsDrawer()" class="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#121826] border border-[#1a2234] text-[11px] text-slate-400 hover:text-white transition">
               <span class="text-amber-400">★</span>
+              ${renderTeamLogo(fav.sport, fav.abbr, 'w-4 h-4')}
               <span class="font-bold text-slate-200">${fav.abbr}</span>
-              <span>Off</span>
+              <span>No Game</span>
             </button>
           `;
         }
         const isLive = g.state === 'in';
-        const scorePart = g.state === 'pre'
-          ? g.statusText.replace(' EST', '')
-          : `${g.away.abbr} ${g.away.score} - ${g.home.abbr} ${g.home.score}`;
+        const isHome = g.home.abbr === fav.abbr;
+        const oppAbbr = isHome ? `vs ${g.away.abbr}` : `@ ${g.home.abbr}`;
+        const statusSummary = g.state === 'pre'
+          ? `${oppAbbr} • ${formatShortNextGameLabel(g)}`
+          : formatShortNextGameLabel(g);
 
         return `
-          <button onclick="openGameCenter('${g.id}')" class="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#121826] hover:bg-[#1a2234] border ${isLive ? 'border-rose-500/40' : 'border-amber-500/30'} text-[11px] transition">
+          <button onclick="openGameCenter('${g.id}')" class="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#121826] hover:bg-[#1a2234] border ${isLive ? 'border-rose-500/40' : 'border-amber-500/30'} text-[11px] transition" title="Next game for ${fav.name} (ignores active filters)">
             ${isLive ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-500 live-dot"></span>' : '<span class="text-amber-400 text-[10px]">★</span>'}
             ${renderTeamLogo(fav.sport, fav.abbr, 'w-4 h-4')}
             <span class="font-extrabold text-white">${fav.abbr}</span>
-            <span class="font-mono text-slate-300">${scorePart}</span>
+            <span class="font-mono text-slate-300">${statusSummary}</span>
           </button>
         `;
       }).join('');
@@ -2051,8 +2127,8 @@
       document.getElementById('modeIndicatorLabel').textContent = isCompact ? 'Compact Scoreboard Mode' : 'Full Handicapping Mode';
       document.getElementById('switchDensityText').textContent = isCompact ? 'Full Handicapping' : 'Compact Scoreboard';
 
-      // 1. Pinned Favorite Teams Spotlight (Always shown unless empty)
-      const favGames = appState.games.filter(isFavoriteGame);
+      // 1. Pinned Favorite Teams Spotlight (Always shows each favorite's next game regardless of filters)
+      const favGames = getPinnedNextGames();
       const spotlightSection = document.getElementById('myTeamsSpotlightSection');
       const myTeamsGrid = document.getElementById('myTeamsGrid');
       document.getElementById('myTeamsCountBadge').textContent = favGames.length;
