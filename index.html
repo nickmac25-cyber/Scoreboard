@@ -120,13 +120,13 @@
         <!-- Live Feed Status Pill (100% Keyless) -->
         <div id="apiCreditsBadge" class="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#121826] border border-[#1a2234] text-[11px] font-mono text-slate-300" title="100% Keyless ESPN Live Scores, Standings & Pickcenter Odds">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-          <span id="apiCreditsText">Keyless Live Feed</span>
-        </div>
-
-        <!-- View Mode Switcher: Scoreboard vs My Record -->
+        <!-- View Mode Switcher: Scoreboard vs News vs My Record -->
         <div class="flex bg-[#121826] p-0.5 rounded-xl border border-[#1a2234]">
           <button id="navScoreboardBtn" onclick="switchMainView('scoreboard')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition bg-emerald-500 text-slate-950 shadow">
             Board
+          </button>
+          <button id="navNewsBtn" onclick="switchMainView('news')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition">
+            News
           </button>
           <button id="navRecordBtn" onclick="switchMainView('record')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition flex items-center gap-1">
             <span>Record</span>
@@ -267,7 +267,29 @@
       </div>
     </section>
 
-    <!-- VIEW 2: MY RECORD & BANKROLL ANALYTICS -->
+    <!-- VIEW 2: LIVE SPORTS NEWS FEED -->
+    <section id="newsView" class="hidden space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl font-black text-white tracking-tight">📰 Live Sports Wire & Injury Headlines</h2>
+          <p class="text-xs text-slate-400">Real-time beat reports, roster moves & game previews across NFL, NHL, NCAAF & MLB</p>
+        </div>
+        <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          <button onclick="setNewsSportFilter('ALL')" data-nsport="ALL" class="news-sport-btn px-3 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-500 text-slate-950 transition">All Wire</button>
+          <button onclick="setNewsSportFilter('MY_TEAMS')" data-nsport="MY_TEAMS" class="news-sport-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-[#121826] text-amber-300 border border-amber-500/30 transition">⭐ My Teams</button>
+          <button onclick="setNewsSportFilter('NFL')" data-nsport="NFL" class="news-sport-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-[#121826] text-slate-300 transition">NFL</button>
+          <button onclick="setNewsSportFilter('NHL')" data-nsport="NHL" class="news-sport-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-[#121826] text-slate-300 transition">NHL</button>
+          <button onclick="setNewsSportFilter('NCAAF')" data-nsport="NCAAF" class="news-sport-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-[#121826] text-slate-300 transition">NCAAF</button>
+          <button onclick="setNewsSportFilter('MLB')" data-nsport="MLB" class="news-sport-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-[#121826] text-slate-300 transition">MLB</button>
+        </div>
+      </div>
+
+      <div id="newsFeedGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Populated dynamically -->
+      </div>
+    </section>
+
+    <!-- VIEW 3: MY RECORD & BANKROLL ANALYTICS -->
     <section id="recordView" class="hidden space-y-6">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -392,7 +414,7 @@
       <!-- Drawer Tabs -->
       <div class="px-4 sm:px-6 pt-2 bg-[#0b0f17] border-b border-[#1a2234] flex items-center gap-2 shrink-0 overflow-x-auto no-scrollbar">
         <button onclick="switchGameCenterTab('boxscore')" id="gcTabBtn-boxscore" class="gc-tab-btn px-3 py-2.5 text-xs font-extrabold border-b-2 border-emerald-400 text-emerald-400 whitespace-nowrap">
-          Box Score & Info
+          Box Score & Scoring
         </button>
         <button onclick="switchGameCenterTab('injuries')" id="gcTabBtn-injuries" class="gc-tab-btn px-3 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">
           Weather, Broadcast & Injuries
@@ -600,28 +622,53 @@
     const ESPN_ENDPOINTS = {
       NFL: {
         scoreboard: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard',
-        standings: 'https://site.api.espn.com/apis/v2/sports/football/nfl/standings',
+        standings: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/standings',
         summary: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary',
+        news: 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/news',
         coreOdds: 'https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events',
       },
       NHL: {
         scoreboard: 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard',
-        standings: 'https://site.api.espn.com/apis/v2/sports/hockey/nhl/standings',
+        standings: 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/standings',
         summary: 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary',
+        news: 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/news',
         coreOdds: 'https://sports.core.api.espn.com/v2/sports/hockey/leagues/nhl/events',
       },
       NCAAF: {
         scoreboard: 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?groups=80',
-        standings: 'https://site.api.espn.com/apis/v2/sports/football/college-football/standings',
+        standings: 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/standings',
         summary: 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary',
+        news: 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/news',
         coreOdds: 'https://sports.core.api.espn.com/v2/sports/football/leagues/college-football/events',
       },
       MLB: {
         scoreboard: 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard',
-        standings: 'https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings',
+        standings: 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/standings',
         summary: 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary',
+        news: 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/news',
         coreOdds: 'https://sports.core.api.espn.com/v2/sports/baseball/leagues/mlb/events',
       }
+    };
+
+    const TEAM_ABBR_ALIASES = {
+      NJD: ['NJD', 'NJ'],
+      NJ: ['NJD', 'NJ'],
+      LAK: ['LAK', 'LA'],
+      SJS: ['SJS', 'SJ'],
+      TBL: ['TBL', 'TB'],
+      WSH: ['WSH', 'WAS'],
+      JAC: ['JAC', 'JAX'],
+      JAX: ['JAC', 'JAX'],
+    };
+
+    function teamAbbrMatches(abbrA, abbrB) {
+      const a = String(abbrA || '').toUpperCase();
+      const b = String(abbrB || '').toUpperCase();
+      if (!a || !b) return false;
+      if (a === b) return true;
+      const aliasesA = TEAM_ABBR_ALIASES[a] || [a];
+      return aliasesA.includes(b);
+    }
     };
 
     const TEAM_DIRECTORY = {
@@ -744,8 +791,9 @@
      * 2. APPLICATION STATE & LOCALSTORAGE PERSISTENCE
      ****************************************************************************/
     let appState = {
-      activeMainView: 'scoreboard', // 'scoreboard' | 'record'
+      activeMainView: 'scoreboard', // 'scoreboard' | 'news' | 'record'
       sportFilter: 'ALL',
+      newsSportFilter: 'ALL',
       dateFilter: 'today',
       recOnly: false,
       top25Only: false,
@@ -754,6 +802,7 @@
       activeGameId: null,
       activeGameTab: 'boxscore',
       games: [],
+      newsArticles: [],
       usingFallback: false,
       liveCount: 0,
       teamStatsMap: {}, // { 'NFL_NYG': { ppg, papg, streak } }
@@ -907,6 +956,38 @@
             { cat: 'Points', player: 'Jack Hughes (NJD)', stat: '1 G, 2 A, 5 SOG' },
             { cat: 'Points', player: 'Jesper Bratt (NJD)', stat: '1 G, 1 A, +2' },
             { cat: 'Goalie', player: 'Jacob Markstrom (NJD)', stat: '24 SV / 26 SA (.923)' }
+          ],
+          scoringPlays: [
+            { period: '1st • 04:12', team: 'NJD', headline: 'Jack Hughes (12) Wrist Shot — PP Goal', detail: 'Assists: Jesper Bratt, Dougie Hamilton', awayScore: 0, homeScore: 1 },
+            { period: '1st • 14:48', team: 'NYR', headline: 'Artemi Panarin (14) Snap Shot', detail: 'Assists: Vincent Trocheck, Adam Fox', awayScore: 1, homeScore: 1 },
+            { period: '2nd • 08:21', team: 'NJD', headline: 'Jesper Bratt (10) Backhand', detail: 'Assists: Jack Hughes, Nico Hischier', awayScore: 1, homeScore: 2 },
+            { period: '2nd • 17:05', team: 'NYR', headline: 'Mika Zibanejad (8) One-Timer — PP Goal', detail: 'Assists: Artemi Panarin, Chris Kreider', awayScore: 2, homeScore: 2 },
+            { period: '3rd • 09:54', team: 'NJD', headline: 'Timo Meier (11) Tip-In', detail: 'Assists: Nico Hischier, Luke Hughes', awayScore: 2, homeScore: 3 }
+          ],
+          playerBoxScore: [
+            {
+              team: 'NJD',
+              group: 'Skaters',
+              headers: ['PLAYER', 'G', 'A', 'PTS', '+/-', 'SOG'],
+              rows: [
+                ['Jack Hughes', '1', '2', '3', '+1', '5'],
+                ['Jesper Bratt', '1', '1', '2', '+2', '4'],
+                ['Nico Hischier', '0', '2', '2', '+1', '3'],
+                ['Timo Meier', '1', '0', '1', '+1', '4'],
+                ['Dougie Hamilton', '0', '1', '1', '0', '3']
+              ]
+            },
+            {
+              team: 'NYR',
+              group: 'Skaters',
+              headers: ['PLAYER', 'G', 'A', 'PTS', '+/-', 'SOG'],
+              rows: [
+                ['Artemi Panarin', '1', '1', '2', '-1', '4'],
+                ['Mika Zibanejad', '1', '0', '1', '-1', '3'],
+                ['Adam Fox', '0', '1', '1', '-2', '2'],
+                ['Vincent Trocheck', '0', '1', '1', '-1', '3']
+              ]
+            }
           ],
           teamStats: [
             { label: 'Shots on Goal', away: '26', home: '31', awayPct: 45, homePct: 55 },
@@ -1087,6 +1168,36 @@
             { cat: 'REC', player: 'Jeremiah Smith (OSU)', stat: '5 REC, 94 YDS, 1 TD' },
             { cat: 'RUSH', player: 'Kalel Mullings (MICH)', stat: '11 CAR, 58 YDS, 1 TD' }
           ],
+          scoringPlays: [
+            { period: '1st • 09:14', team: 'MICH', headline: 'Dominic Zvada 44 Yd Field Goal', detail: '9 plays, 49 yards, 4:18', awayScore: 3, homeScore: 0 },
+            { period: '1st • 03:40', team: 'OSU', headline: 'Jeremiah Smith 28 Yd Pass from Will Howard', detail: 'Jayden Fielding Kick • 7 plays, 75 yards', awayScore: 3, homeScore: 7 },
+            { period: '2nd • 11:02', team: 'OSU', headline: 'Emeka Egbuka 14 Yd Pass from Will Howard', detail: 'Jayden Fielding Kick • 6 plays, 68 yards', awayScore: 3, homeScore: 14 },
+            { period: '2nd • 06:45', team: 'MICH', headline: 'Kalel Mullings 4 Yd Run', detail: 'Dominic Zvada Kick • 8 plays, 75 yards', awayScore: 10, homeScore: 14 },
+            { period: '2nd • 03:55', team: 'OSU', headline: 'Jayden Fielding 38 Yd Field Goal', detail: '6 plays, 54 yards, 2:50', awayScore: 10, homeScore: 17 }
+          ],
+          playerBoxScore: [
+            {
+              team: 'OSU',
+              group: 'Passing & Receiving',
+              headers: ['PLAYER', 'STAT 1', 'STAT 2', 'YDS', 'TD'],
+              rows: [
+                ['Will Howard (QB)', '14/18 CMP', '77.8%', '189', '2'],
+                ['Jeremiah Smith (WR)', '5 REC', '18.8 AVG', '94', '1'],
+                ['Emeka Egbuka (WR)', '4 REC', '12.5 AVG', '50', '1'],
+                ['TreVeyon Henderson (RB)', '9 CAR', '5.7 AVG', '51', '0']
+              ]
+            },
+            {
+              team: 'MICH',
+              group: 'Rushing & Passing',
+              headers: ['PLAYER', 'STAT 1', 'STAT 2', 'YDS', 'TD'],
+              rows: [
+                ['Kalel Mullings (RB)', '11 CAR', '5.3 AVG', '58', '1'],
+                ['Davis Warren (QB)', '9/14 CMP', '64.3%', '84', '0'],
+                ['Colston Loveland (TE)', '4 REC', '11.0 AVG', '44', '0']
+              ]
+            }
+          ],
           teamStats: [
             { label: 'Total Yards', away: '142', home: '248', awayPct: 36, homePct: 64 },
             { label: 'Yards Per Play', away: '4.4', home: '7.1', awayPct: 38, homePct: 62 },
@@ -1143,6 +1254,42 @@
             { cat: 'RB', player: 'Derrick Henry (BAL)', stat: '24 CAR, 140 YDS' },
             { cat: 'QB', player: 'Lamar Jackson (BAL)', stat: '16/22, 177 YDS, 2 TD + 1 RUSH TD' },
             { cat: 'QB', player: 'Justin Herbert (LAC)', stat: '21/36, 218 YDS, 1 RUSH TD' }
+          ],
+          scoringPlays: [
+            { period: '1st • 10:18', team: 'LAC', headline: 'Justin Herbert 5 Yd Run', detail: 'Cameron Dicker Kick • 8 plays, 70 yards', awayScore: 0, homeScore: 7 },
+            { period: '1st • 02:44', team: 'LAC', headline: 'Cameron Dicker 42 Yd Field Goal', detail: '11 plays, 56 yards, 5:12', awayScore: 0, homeScore: 10 },
+            { period: '2nd • 09:30', team: 'BAL', headline: 'Lamar Jackson 10 Yd Run', detail: 'Justin Tucker Kick • 9 plays, 75 yards', awayScore: 7, homeScore: 10 },
+            { period: '2nd • 01:12', team: 'BAL', headline: 'Rashod Bateman 40 Yd Pass from Lamar Jackson', detail: 'Justin Tucker Kick • 5 plays, 80 yards', awayScore: 14, homeScore: 10 },
+            { period: '2nd • 00:00', team: 'LAC', headline: 'Cameron Dicker 52 Yd Field Goal', detail: '7 plays, 41 yards, 1:12', awayScore: 14, homeScore: 13 },
+            { period: '3rd • 07:15', team: 'BAL', headline: 'Justin Tucker 45 Yd Field Goal', detail: '10 plays, 52 yards, 4:48', awayScore: 17, homeScore: 13 },
+            { period: '4th • 12:40', team: 'BAL', headline: 'Mark Andrews 6 Yd Pass from Lamar Jackson', detail: 'Justin Tucker Kick • 8 plays, 64 yards', awayScore: 24, homeScore: 13 },
+            { period: '4th • 04:55', team: 'BAL', headline: 'Justice Hill 51 Yd Run', detail: 'PAT Missed • 4 plays, 72 yards', awayScore: 30, homeScore: 13 },
+            { period: '4th • 01:42', team: 'LAC', headline: 'Quentin Johnston 18 Yd Pass from Justin Herbert', detail: 'Cameron Dicker Kick • 9 plays, 75 yards', awayScore: 30, homeScore: 23 }
+          ],
+          playerBoxScore: [
+            {
+              team: 'BAL',
+              group: 'Offensive Box Score',
+              headers: ['PLAYER', 'ATT/REC', 'YDS', 'AVG', 'TD'],
+              rows: [
+                ['Derrick Henry (RB)', '24 CAR', '140', '5.8', '0'],
+                ['Lamar Jackson (QB)', '16/22 CMP', '177', '8.0', '2'],
+                ['Justice Hill (RB)', '4 CAR', '55', '13.8', '1'],
+                ['Zay Flowers (WR)', '5 REC', '62', '12.4', '0'],
+                ['Rashod Bateman (WR)', '2 REC', '47', '23.5', '1']
+              ]
+            },
+            {
+              team: 'LAC',
+              group: 'Offensive Box Score',
+              headers: ['PLAYER', 'ATT/REC', 'YDS', 'AVG', 'TD'],
+              rows: [
+                ['Justin Herbert (QB)', '21/36 CMP', '218', '6.1', '1'],
+                ['Ladd McConkey (WR)', '6 REC', '83', '13.8', '0'],
+                ['J.K. Dobbins (RB)', '12 CAR', '48', '4.0', '0'],
+                ['Quentin Johnston (WR)', '3 REC', '39', '13.0', '1']
+              ]
+            }
           ],
           teamStats: [
             { label: 'Total Yards', away: '389', home: '285', awayPct: 58, homePct: 42 },
@@ -1351,10 +1498,56 @@
         appState.usingFallback = false;
         if (!appState.prefs.strictLiveOnly) {
           for (const fav of appState.prefs.favorites) {
-            const hasFav = combinedGames.some(g => g.sport === fav.sport && (g.away.abbr === fav.abbr || g.home.abbr === fav.abbr));
+            const hasFav = combinedGames.some(
+              g => g.sport === fav.sport && (teamAbbrMatches(g.away.abbr, fav.abbr) || teamAbbrMatches(g.home.abbr, fav.abbr))
+            );
             if (!hasFav) {
-              const sampleFav = sampleSlate.find(g => g.sport === fav.sport && (g.away.abbr === fav.abbr || g.home.abbr === fav.abbr));
-              if (sampleFav) combinedGames.push(sampleFav);
+              const sampleFav = sampleSlate.find(
+                g => g.sport === fav.sport && (teamAbbrMatches(g.away.abbr, fav.abbr) || teamAbbrMatches(g.home.abbr, fav.abbr))
+              );
+              if (sampleFav) {
+                combinedGames.push(sampleFav);
+              } else {
+                // Generate an immediate Next-Game Spotlight card for ANY user-pinned team across NFL/NHL/NCAAF/MLB
+                const meta = getTeamMeta(fav.sport, fav.abbr);
+                const oppPool = (TEAM_DIRECTORY[fav.sport] || []).filter(t => !teamAbbrMatches(t.abbr, fav.abbr));
+                const opp = oppPool[0] || { abbr: 'OPP', name: 'League Opponent', color: '#1e293b' };
+                const tmrw = new Date(Date.now() + 26 * 3600 * 1000);
+                const timeLabel = tmrw.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                combinedGames.push({
+                  id: `sample-fav-${fav.sport.toLowerCase()}-${fav.abbr.toLowerCase()}`,
+                  sport: fav.sport,
+                  dateBucket: 'upcoming',
+                  state: 'pre',
+                  statusText: `Tomorrow • ${timeLabel}`,
+                  situation: `Next Scheduled ${fav.sport} Matchup`,
+                  startTime: tmrw.toISOString(),
+                  venue: `${fav.name} Home Arena`,
+                  surface: fav.sport === 'NHL' ? 'Indoor Ice' : 'Turf',
+                  isIndoor: fav.sport === 'NHL',
+                  weather: { temp: fav.sport === 'NHL' ? 68 : 48, wind: fav.sport === 'NHL' ? 0 : 9, windDir: 'NW', condition: fav.sport === 'NHL' ? 'Indoor Ice' : 'Clear', precip: 0 },
+                  broadcast: {
+                    tv: [fav.sport === 'NHL' ? 'MSG / ESPN+' : 'FOX / ESPN'],
+                    streaming: fav.sport === 'NHL' ? 'ESPN+ / Gotham Sports' : 'NFL+ / Network App',
+                    homeRadio: meta?.radio || getTeamFlagshipRadio(fav.sport, fav.abbr, fav.name),
+                    awayRadio: opp.radio || getTeamFlagshipRadio(fav.sport, opp.abbr, opp.name),
+                    nationalRadio: 'SiriusXM Live'
+                  },
+                  away: { abbr: opp.abbr, name: opp.name, record: '11-7-2', roadRecord: '5-4-1', streak: 'W1', rank: null, conf: '', score: null, ppg: fav.sport === 'NHL' ? 3.1 : 22.4, papg: fav.sport === 'NHL' ? 2.9 : 21.8, linescores: [] },
+                  home: { abbr: fav.abbr, name: fav.name, record: '13-6-1', homeRecord: '7-2-1', streak: 'W2', rank: null, conf: '', score: null, ppg: fav.sport === 'NHL' ? 3.4 : 24.1, papg: fav.sport === 'NHL' ? 2.6 : 20.5, linescores: [] },
+                  leaders: [],
+                  scoringPlays: [],
+                  playerBoxScore: [],
+                  teamStats: [],
+                  injuries: [],
+                  odds: {
+                    spread: { line: -1.5, homePrice: '-110', awayPrice: '-110', books: { DK: `${fav.abbr} -1.5 (-110)`, FD: `${fav.abbr} -1.5 (-108)`, MGM: `${fav.abbr} -1.5 (-112)` } },
+                    total: { line: fav.sport === 'NHL' ? 6.0 : 44.5, overPrice: '-110', underPrice: '-110', books: { DK: 'O (-110)', FD: 'O (-108)', MGM: 'U (-110)' } },
+                    ml: { home: -135, away: +115, books: { DK: `${fav.abbr} -135`, FD: `${fav.abbr} -132`, MGM: `${fav.abbr} -138` } }
+                  },
+                  props: buildLivePlayerPropsFromLeaders(fav.sport, { abbr: opp.abbr }, { abbr: fav.abbr }, fav.sport === 'NHL' ? 6.0 : 44.5, { wind: 0 }, [])
+                });
+              }
             }
           }
         }
@@ -1615,6 +1808,8 @@
           away,
           home,
           leaders,
+          scoringPlays: [],
+          playerBoxScore: [],
           teamStats: [],
           injuries: [],
           hasLiveOdds,
@@ -1935,10 +2130,10 @@
       // Extract Team Comparison Stats
       const boxTeams = data.boxscore?.teams || [];
       if (boxTeams.length === 2) {
-        const awayStats = boxTeams.find(t => t.team?.abbreviation === game.away.abbr)?.statistics || boxTeams[0].statistics || [];
-        const homeStats = boxTeams.find(t => t.team?.abbreviation === game.home.abbr)?.statistics || boxTeams[1].statistics || [];
+        const awayStats = boxTeams.find(t => teamAbbrMatches(t.team?.abbreviation, game.away.abbr))?.statistics || boxTeams[0].statistics || [];
+        const homeStats = boxTeams.find(t => teamAbbrMatches(t.team?.abbreviation, game.home.abbr))?.statistics || boxTeams[1].statistics || [];
         const statsList = [];
-        for (let i = 0; i < Math.min(awayStats.length, 5); i++) {
+        for (let i = 0; i < Math.min(awayStats.length, 6); i++) {
           const a = awayStats[i];
           const h = homeStats.find(x => x.name === a.name) || homeStats[i];
           if (a && h) {
@@ -1953,6 +2148,46 @@
               homePct: Math.round((hNum / sum) * 100),
             });
           }
+        }
+        if (statsList.length > 0) game.teamStats = statsList;
+      }
+
+      // Extract Period-by-Period Scoring Summary (ESPN scoringPlays)
+      if (Array.isArray(data.scoringPlays) && data.scoringPlays.length > 0) {
+        game.scoringPlays = data.scoringPlays.map(sp => ({
+          period: `${sp.period?.displayValue || 'Period'}${sp.clock?.displayValue ? ' • ' + sp.clock.displayValue : ''}`,
+          team: sp.team?.abbreviation || '',
+          headline: sp.type?.text || sp.text || 'Scoring Play',
+          detail: sp.text || '',
+          awayScore: sp.awayScore ?? '',
+          homeScore: sp.homeScore ?? '',
+        }));
+      }
+
+      // Extract Box Score Player Stat Tables (ESPN boxscore.players)
+      const boxPlayers = data.boxscore?.players || [];
+      if (Array.isArray(boxPlayers) && boxPlayers.length > 0) {
+        const parsedTables = [];
+        for (const teamBlock of boxPlayers) {
+          const tAbbr = teamBlock.team?.abbreviation || '';
+          for (const statCat of (teamBlock.statistics || []).slice(0, 2)) {
+            const keys = (statCat.labels || statCat.names || []).slice(0, 5);
+            const athletes = (statCat.athletes || []).slice(0, 5);
+            if (keys.length > 0 && athletes.length > 0) {
+              parsedTables.push({
+                team: tAbbr,
+                group: statCat.text || statCat.name || 'Box Score',
+                headers: ['PLAYER', ...keys],
+                rows: athletes.map(a => [
+                  a.athlete?.shortName || a.athlete?.displayName || 'Player',
+                  ...(a.stats || []).slice(0, 5)
+                ])
+              });
+            }
+          }
+        }
+        if (parsedTables.length > 0) game.playerBoxScore = parsedTables;
+      }
         }
         if (statsList.length > 0) game.teamStats = statsList;
       }
@@ -1986,14 +2221,14 @@
      ****************************************************************************/
     function isFavoriteGame(game) {
       return appState.prefs.favorites.some(
-        f => f.sport === game.sport && (f.abbr === game.away.abbr || f.abbr === game.home.abbr)
+        f => f.sport === game.sport && (teamAbbrMatches(f.abbr, game.away.abbr) || teamAbbrMatches(f.abbr, game.home.abbr))
       );
     }
 
     // Always resolve each pinned favorite team's LIVE game or immediate NEXT upcoming game regardless of active filters
     function getNextGameForFavorite(fav) {
       const teamGames = appState.games.filter(
-        g => g.sport === fav.sport && (g.away.abbr === fav.abbr || g.home.abbr === fav.abbr)
+        g => g.sport === fav.sport && (teamAbbrMatches(g.away.abbr, fav.abbr) || teamAbbrMatches(g.home.abbr, fav.abbr))
       );
       if (teamGames.length === 0) return null;
 
@@ -2100,7 +2335,7 @@
           `;
         }
         const isLive = g.state === 'in';
-        const isHome = g.home.abbr === fav.abbr;
+        const isHome = teamAbbrMatches(g.home.abbr, fav.abbr);
         const oppAbbr = isHome ? `vs ${g.away.abbr}` : `@ ${g.home.abbr}`;
         const statusSummary = g.state === 'pre'
           ? `${oppAbbr} • ${formatShortNextGameLabel(g)}`
@@ -2691,7 +2926,70 @@
           </div>
         `;
 
-        container.innerHTML = lineScoreHtml + renderBroadcastAndWeatherCard(game) + teamStatsHtml + leadersHtml;
+        const scoringSummaryHtml = `
+          <div class="bg-[#121826] border border-[#1a2234] rounded-2xl overflow-hidden">
+            <div class="px-4 py-2.5 border-b border-[#1a2234] flex items-center justify-between">
+              <h4 class="text-xs font-extrabold uppercase tracking-wider text-white">Scoring Summary</h4>
+              <span class="text-[10px] font-mono text-slate-400">${game.scoringPlays?.length || 0} Scoring Plays</span>
+            </div>
+            ${(game.scoringPlays && game.scoringPlays.length > 0) ? `
+              <div class="divide-y divide-[#1a2234]">
+                ${game.scoringPlays.map(sp => `
+                  <div class="p-3 flex items-start justify-between gap-3 hover:bg-[#141c2c] transition">
+                    <div class="flex items-start gap-2.5 min-w-0">
+                      ${renderTeamLogo(game.sport, sp.team, 'w-6 h-6 mt-0.5')}
+                      <div class="min-w-0">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                          <span class="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-[#1a2234] text-emerald-400">${sp.period}</span>
+                          <span class="text-xs font-extrabold text-white">${sp.headline}</span>
+                        </div>
+                        ${sp.detail && sp.detail !== sp.headline ? `<p class="text-[11px] text-slate-400 mt-0.5 leading-snug">${sp.detail}</p>` : ''}
+                      </div>
+                    </div>
+                    <div class="shrink-0 text-right font-mono text-xs font-black px-2 py-1 rounded-lg bg-[#0e131f] border border-[#1a2234] text-slate-200 tabular-nums">
+                      ${game.away.abbr} ${sp.awayScore} - ${game.home.abbr} ${sp.homeScore}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            ` : `
+              <div class="p-4 text-xs text-slate-400">
+                ${game.state === 'pre' ? 'Scoring summary will populate live once the game kicks off.' : 'No scoring plays recorded yet.'}
+              </div>
+            `}
+          </div>
+        `;
+
+        const playerBoxScoreHtml = (game.playerBoxScore && game.playerBoxScore.length > 0) ? `
+          <div class="space-y-3">
+            ${game.playerBoxScore.map(tbl => `
+              <div class="bg-[#121826] border border-[#1a2234] rounded-2xl overflow-hidden">
+                <div class="px-4 py-2.5 border-b border-[#1a2234] flex items-center gap-2 bg-[#0e131f]">
+                  ${renderTeamLogo(game.sport, tbl.team, 'w-5 h-5')}
+                  <h4 class="text-xs font-extrabold uppercase tracking-wider text-white">${tbl.team} • ${tbl.group}</h4>
+                </div>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-right font-mono text-xs">
+                    <thead>
+                      <tr class="border-b border-[#1a2234] text-[10px] text-slate-400">
+                        ${tbl.headers.map((h, i) => `<th class="py-2 px-3 ${i === 0 ? 'text-left' : ''}">${h}</th>`).join('')}
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-[#1a2234]">
+                      ${tbl.rows.map(r => `
+                        <tr>
+                          ${r.map((cell, i) => `<td class="py-2 px-3 ${i === 0 ? 'text-left font-sans font-bold text-white' : 'text-slate-300'}">${cell}</td>`).join('')}
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : '';
+
+        container.innerHTML = lineScoreHtml + scoringSummaryHtml + teamStatsHtml + playerBoxScoreHtml + leadersHtml + renderBroadcastAndWeatherCard(game);
       }
 
       if (tab === 'injuries') {
@@ -2833,356 +3131,157 @@
     function switchMainView(view) {
       appState.activeMainView = view;
       const sbView = document.getElementById('scoreboardView');
+      const newsView = document.getElementById('newsView');
       const recView = document.getElementById('recordView');
       const subNav = document.getElementById('scoreboardSubNav');
       const sbBtn = document.getElementById('navScoreboardBtn');
+      const newsBtn = document.getElementById('navNewsBtn');
       const recBtn = document.getElementById('navRecordBtn');
+
+      const inactiveClass = 'px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition';
+      sbBtn.className = inactiveClass;
+      newsBtn.className = inactiveClass;
+      recBtn.className = `${inactiveClass} flex items-center gap-1`;
+
+      sbView.classList.add('hidden');
+      newsView.classList.add('hidden');
+      recView.classList.add('hidden');
+      subNav.classList.add('hidden');
 
       if (view === 'scoreboard') {
         sbView.classList.remove('hidden');
         subNav.classList.remove('hidden');
-        recView.classList.add('hidden');
         sbBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition bg-emerald-500 text-slate-950 shadow';
-        recBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition flex items-center gap-1';
+      } else if (view === 'news') {
+        newsView.classList.remove('hidden');
+        newsBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition bg-emerald-500 text-slate-950 shadow';
+        fetchAndRenderNews();
       } else {
-        sbView.classList.add('hidden');
-        subNav.classList.add('hidden');
         recView.classList.remove('hidden');
         recBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition bg-emerald-500 text-slate-950 shadow flex items-center gap-1';
-        sbBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition';
         renderRecordView();
       }
     }
 
-    function setSportFilter(sport) {
-      appState.sportFilter = sport;
-      document.querySelectorAll('.sport-tab').forEach(btn => {
-        const isSelected = btn.dataset.sport === sport;
-        if (isSelected) {
-          btn.className = 'sport-tab px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition bg-white text-slate-950 shadow';
-        } else {
-          btn.className = 'sport-tab px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-[#121826] text-slate-300 hover:bg-[#1a2234]';
-        }
-      });
-      renderScoreboard();
-    }
-
-    function setDateFilter(bucket) {
-      appState.dateFilter = bucket;
-      document.querySelectorAll('.date-tab').forEach(btn => {
-        const isSelected = btn.dataset.date === bucket;
-        btn.className = isSelected
-          ? 'date-tab px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#1a2234] text-emerald-400 transition'
-          : 'date-tab px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white transition';
-      });
-      renderScoreboard();
-    }
-
-    function toggleFilterFlag(flagName) {
-      appState[flagName] = !appState[flagName];
-      const map = {
-        recOnly: 'toggleRecOnly',
-        top25Only: 'toggleTop25',
-        powerConfOnly: 'togglePowerConf',
-      };
-      const btn = document.getElementById(map[flagName]);
-      if (btn) {
-        btn.className = appState[flagName]
-          ? 'px-2.5 py-1 rounded-xl text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition whitespace-nowrap'
-          : 'px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-[#121826] text-slate-400 border border-[#1a2234] hover:text-white transition whitespace-nowrap';
-      }
-      renderScoreboard();
-    }
-
-    function resetFilters() {
-      appState.recOnly = false;
-      appState.top25Only = false;
-      appState.powerConfOnly = false;
-      ['toggleRecOnly', 'toggleTop25', 'togglePowerConf'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.className = 'px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-[#121826] text-slate-400 border border-[#1a2234] hover:text-white transition whitespace-nowrap';
-      });
-      setSportFilter('ALL');
-      setDateFilter('all');
-    }
-
-    function toggleDensityMode() {
-      appState.prefs.density = appState.prefs.density === 'full' ? 'compact' : 'full';
-      persistPrefs();
-      renderScoreboard();
-      showToast(appState.prefs.density === 'compact' ? 'Switched to Compact Scoreboard' : 'Switched to Full Handicapping');
-    }
-
-    /****************************************************************************
-     * 11. SETTINGS & FAVORITES MANAGER
-     ****************************************************************************/
-    function openSettingsDrawer() {
-      document.getElementById('settingsModal').classList.remove('hidden');
-      document.getElementById('strictLiveOnlyInput').checked = Boolean(appState.prefs.strictLiveOnly);
-      document.getElementById('unitSizeInput').value = appState.prefs.unitSize || 100;
-      document.getElementById('defaultDensitySelect').value = appState.prefs.density || 'full';
-      renderSettingsFavList();
-      populateTeamDropdown();
-    }
-
-    function closeSettingsDrawer() {
-      document.getElementById('settingsModal').classList.add('hidden');
-    }
-
-    function renderSettingsFavList() {
-      const container = document.getElementById('settingsFavList');
-      if (!appState.prefs.favorites.length) {
-        container.innerHTML = '<p class="text-xs text-slate-500">No teams pinned yet.</p>';
-        return;
-      }
-      container.innerHTML = appState.prefs.favorites.map((fav, idx) => `
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/35 text-xs font-bold text-amber-200">
-          ${renderTeamLogo(fav.sport, fav.abbr, 'w-5 h-5')}
-          <span>${fav.name} (${fav.sport})</span>
-          <button onclick="removeFavoriteTeam(${idx})" class="ml-1 text-amber-400 hover:text-white font-black">✕</button>
-        </span>
-      `).join('');
-    }
-
-    function populateTeamDropdown() {
-      const sport = document.getElementById('favSportSelect').value;
-      const select = document.getElementById('favTeamSelect');
-      const teams = TEAM_DIRECTORY[sport] || [];
-      select.innerHTML = teams.map(t => `<option value="${t.abbr}|${t.name}">${t.name} (${t.abbr})</option>`).join('');
-    }
-
-    function addSelectedFavoriteTeam() {
-      const sport = document.getElementById('favSportSelect').value;
-      const val = document.getElementById('favTeamSelect').value;
-      if (!val) return;
-      const [abbr, name] = val.split('|');
-      const exists = appState.prefs.favorites.some(f => f.sport === sport && f.abbr === abbr);
-      if (!exists) {
-        appState.prefs.favorites.push({ sport, abbr, name });
-        persistPrefs();
-        renderSettingsFavList();
-        renderAll();
-        showToast(`Pinned ${name}`);
-      } else {
-        showToast(`${name} is already pinned`);
-      }
-    }
-
-    function removeFavoriteTeam(index) {
-      const removed = appState.prefs.favorites.splice(index, 1)[0];
-      persistPrefs();
-      renderSettingsFavList();
-      renderAll();
-      if (removed) showToast(`Removed ${removed.name}`);
-    }
-
-    function saveSettings() {
-      appState.prefs.strictLiveOnly = document.getElementById('strictLiveOnlyInput').checked;
-      appState.prefs.unitSize = Math.max(1, Number(document.getElementById('unitSizeInput').value) || 100);
-      appState.prefs.density = document.getElementById('defaultDensitySelect').value;
-      persistPrefs();
-      closeSettingsDrawer();
-      localStorage.removeItem(STORAGE_KEYS.CACHE);
-      syncAllData(true);
-    }
-
-    function clearApiCacheAndSync() {
-      localStorage.removeItem(STORAGE_KEYS.CACHE);
-      closeSettingsDrawer();
-      syncAllData(true);
-    }
-
-    /****************************************************************************
-     * 12. BET TRACKER ("MY RECORD") & + LOG PLAY ENGINE
-     ****************************************************************************/
-    function quickLogPlay(sport, matchup, market, selection, book, odds, rationale) {
-      openLogPlayModal({ sport, matchup, market, selection, book, odds, units: 1.0, rationale });
-    }
-
-    function openLogPlayModal(prefill = null) {
-      document.getElementById('logPlayModal').classList.remove('hidden');
-      if (prefill) {
-        document.getElementById('lpSport').value = prefill.sport || 'NFL';
-        document.getElementById('lpMatchup').value = prefill.matchup || '';
-        document.getElementById('lpMarket').value = prefill.market || 'Spread';
-        document.getElementById('lpSelection').value = prefill.selection || '';
-        document.getElementById('lpBook').value = prefill.book || 'DK';
-        document.getElementById('lpOdds').value = prefill.odds ?? -110;
-        document.getElementById('lpUnits').value = prefill.units ?? 1.0;
-        document.getElementById('lpRationale').value = prefill.rationale || '';
-      }
-    }
-
-    function closeLogPlayModal() {
-      document.getElementById('logPlayModal').classList.add('hidden');
-    }
-
-    function submitLoggedPlay(e) {
-      e.preventDefault();
-      const bet = {
-        id: 'bet-' + Date.now(),
-        createdAt: new Date().toISOString(),
-        sport: document.getElementById('lpSport').value,
-        matchup: document.getElementById('lpMatchup').value.trim(),
-        market: document.getElementById('lpMarket').value,
-        selection: document.getElementById('lpSelection').value.trim(),
-        book: document.getElementById('lpBook').value,
-        odds: Number(document.getElementById('lpOdds').value) || -110,
-        units: Number(document.getElementById('lpUnits').value) || 1.0,
-        rationale: document.getElementById('lpRationale').value.trim(),
-        status: 'pending', // 'pending' | 'win' | 'loss' | 'push'
-      };
-      appState.bets.unshift(bet);
-      persistBets();
-      closeLogPlayModal();
-      updateHeaderTelemetry();
-      if (appState.activeMainView === 'record') renderRecordView();
-      showToast(`Logged: ${bet.selection} (${bet.units}u)`);
-    }
-
-    function updateBetStatus(betId, newStatus) {
-      const bet = appState.bets.find(b => b.id === betId);
-      if (!bet) return;
-      bet.status = newStatus;
-      persistBets();
-      updateHeaderTelemetry();
-      renderRecordView();
-    }
-
-    function deleteBet(betId) {
-      appState.bets = appState.bets.filter(b => b.id !== betId);
-      persistBets();
-      updateHeaderTelemetry();
-      renderRecordView();
-      showToast('Play removed from ledger');
-    }
-
-    function setBetFilter(filter) {
-      appState.betFilter = filter;
-      document.querySelectorAll('.bet-filter-btn').forEach(btn => {
-        const active = btn.dataset.bfilter === filter;
+    function setNewsSportFilter(sport) {
+      appState.newsSportFilter = sport;
+      document.querySelectorAll('.news-sport-btn').forEach(btn => {
+        const active = btn.dataset.nsport === sport;
         btn.className = active
-          ? 'bet-filter-btn px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500 text-slate-950'
-          : 'bet-filter-btn px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#1a2234] text-slate-300';
+          ? 'news-sport-btn px-3 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-500 text-slate-950 transition'
+          : 'news-sport-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-[#121826] text-slate-300 hover:bg-[#1a2234] transition';
       });
-      renderRecordView();
+      renderNewsView();
     }
 
-    function calcBetNetUnits(bet) {
-      if (bet.status === 'pending' || bet.status === 'push') return 0;
-      if (bet.status === 'loss') return -bet.units;
-      // Win payout
-      const o = Number(bet.odds);
-      if (o > 0) return bet.units * (o / 100);
-      return bet.units * (100 / Math.abs(o));
-    }
-
-    function renderRecordView() {
-      const unitSize = appState.prefs.unitSize || 100;
-      document.getElementById('unitSizeDisplay').textContent = `$${unitSize}`;
-
-      let netUnits = 0;
-      let pendingUnits = 0;
-      let riskedUnits = 0;
-      let wins = 0;
-      let losses = 0;
-      let pushes = 0;
-
-      const sportUnits = { NFL: 0, NHL: 0, NCAAF: 0, MLB: 0 };
-      const marketStats = { Spread: 0, Total: 0, Moneyline: 0, 'Player Prop': 0 };
-
-      for (const b of appState.bets) {
-        const net = calcBetNetUnits(b);
-        netUnits += net;
-        if (sportUnits[b.sport] !== undefined) sportUnits[b.sport] += net;
-        if (marketStats[b.market] !== undefined) marketStats[b.market] += net;
-
-        if (b.status === 'pending') pendingUnits += b.units;
-        if (b.status === 'win') { wins++; riskedUnits += b.units; }
-        if (b.status === 'loss') { losses++; riskedUnits += b.units; }
-        if (b.status === 'push') { pushes++; }
-      }
-
-      const netProfit = netUnits * unitSize;
-      const winRate = (wins + losses) > 0 ? ((wins / (wins + losses)) * 100) : 0;
-      const roi = riskedUnits > 0 ? ((netUnits / riskedUnits) * 100) : 0;
-
-      const netUnitsEl = document.getElementById('kpiNetUnits');
-      netUnitsEl.textContent = `${netUnits >= 0 ? '+' : ''}${netUnits.toFixed(2)}u`;
-      netUnitsEl.className = `text-2xl sm:text-3xl font-black font-mono mt-1 ${netUnits >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
-
-      document.getElementById('kpiPendingUnits').textContent = `${pendingUnits.toFixed(2)}u pending`;
-
-      const netProfitEl = document.getElementById('kpiNetProfit');
-      netProfitEl.textContent = `${netProfit >= 0 ? '+$' : '-$'}${Math.abs(Math.round(netProfit)).toLocaleString()}`;
-      netProfitEl.className = `text-2xl sm:text-3xl font-black font-mono mt-1 ${netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
-
-      document.getElementById('kpiRoi').textContent = `ROI: ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%`;
-      document.getElementById('kpiWinRate').textContent = `${winRate.toFixed(1)}%`;
-      document.getElementById('kpiRecordWLP').textContent = `${wins}-${losses}-${pushes}`;
-      document.getElementById('kpiTotalBets').textContent = `${appState.bets.length} logged plays`;
-
-      // Market Split Breakdown
-      document.getElementById('marketSplitBreakdown').innerHTML = Object.entries(marketStats).map(([mkt, val]) => `
-        <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#0e131f] border border-[#1a2234]">
-          <span class="font-bold text-slate-200">${mkt}</span>
-          <span class="font-mono font-extrabold ${val >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${val >= 0 ? '+' : ''}${val.toFixed(2)}u</span>
-        </div>
-      `).join('');
-
-      // Chart.js Performance by Sport
-      renderSportChart(sportUnits);
-
-      // Bet History Table
-      const filteredBets = appState.betFilter === 'ALL'
-        ? appState.bets
-        : appState.bets.filter(b => b.status === appState.betFilter);
-
-      const tbody = document.getElementById('betHistoryTableBody');
-      if (filteredBets.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7" class="py-8 text-center text-slate-400">
-              No logged plays in this filter. Click <span class="text-emerald-400 font-bold">+ Log</span> on any game or prop to track your action.
-            </td>
-          </tr>
-        `;
+    async function fetchAndRenderNews() {
+      const grid = document.getElementById('newsFeedGrid');
+      const cached = getCache('espn_live_news');
+      if (cached && cached.length > 0) {
+        appState.newsArticles = cached;
+        renderNewsView();
         return;
       }
 
-      tbody.innerHTML = filteredBets.map(b => {
-        const net = calcBetNetUnits(b);
-        const netStr = b.status === 'pending' ? 'Pending' : `${net >= 0 ? '+' : ''}${net.toFixed(2)}u`;
-        const netColor = b.status === 'pending' ? 'text-slate-400' : net > 0 ? 'text-emerald-400' : net < 0 ? 'text-rose-400' : 'text-slate-300';
+      grid.innerHTML = `<div class="col-span-full text-center py-10 text-xs font-mono text-slate-400">Fetching live ESPN wire across NFL, NHL, NCAAF & MLB...</div>`;
 
+      const sports = ['NFL', 'NHL', 'NCAAF', 'MLB'];
+      const results = await Promise.all(
+        sports.map(sp => safeFetchJson(`${ESPN_ENDPOINTS[sp].news}?limit=8`, 5500).then(res => ({ sp, res })))
+      );
+
+      let articles = [];
+      for (const item of results) {
+        if (item.res.ok && Array.isArray(item.res.data?.articles)) {
+          for (const a of item.res.data.articles) {
+            articles.push({
+              id: a.dataSourceIdentifier || a.id || `${item.sp}-${articles.length}`,
+              sport: item.sp,
+              headline: a.headline || 'Breaking Update',
+              description: a.description || '',
+              published: a.published || new Date().toISOString(),
+              image: a.images?.[0]?.url || '',
+              link: a.links?.web?.href || 'https://www.espn.com',
+              categories: (a.categories || []).map(c => c.description || c.team?.abbreviation || '').filter(Boolean)
+            });
+          }
+        }
+      }
+
+      if (articles.length === 0) {
+        articles = [
+          {
+            id: 'news-njd-1', sport: 'NHL',
+            headline: 'Devils Top Line Surge Powers Metropolitan Division Push',
+            description: 'Jack Hughes and Jesper Bratt continue to pace New Jersey’s 5-on-5 expected goals rate ahead of division rivalry action.',
+            published: new Date().toISOString(), image: '', link: 'https://www.espn.com/nhl/team/_/name/nj/new-jersey-devils',
+            categories: ['New Jersey Devils', 'NJD']
+          },
+          {
+            id: 'news-nyg-1', sport: 'NFL',
+            headline: 'Giants Ground Game & Malik Nabers Target Share Highlight NFC East Clash',
+            description: 'New York leans on red-zone efficiency and defensive front pressure entering prime-time showcase.',
+            published: new Date(Date.now() - 3600 * 1000).toISOString(), image: '', link: 'https://www.espn.com/nfl/team/_/name/nyg/new-york-giants',
+            categories: ['New York Giants', 'NYG']
+          },
+          {
+            id: 'news-nyj-1', sport: 'NFL',
+            headline: 'MetLife Wind Forecast Shifts Jets Game Script Toward Breece Hall',
+            description: '20+ MPH gusts in East Rutherford project elevated rushing volume and short-area checkdowns.',
+            published: new Date(Date.now() - 7200 * 1000).toISOString(), image: '', link: 'https://www.espn.com/nfl/team/_/name/nyj/new-york-jets',
+            categories: ['New York Jets', 'NYJ']
+          }
+        ];
+      } else {
+        articles.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
+        setCache('espn_live_news', articles);
+      }
+
+      appState.newsArticles = articles;
+      renderNewsView();
+    }
+
+    function renderNewsView() {
+      const grid = document.getElementById('newsFeedGrid');
+      if (!grid) return;
+
+      let list = [...appState.newsArticles];
+      if (appState.newsSportFilter === 'MY_TEAMS') {
+        const favNames = appState.prefs.favorites.map(f => f.name.toLowerCase());
+        const favAbbrs = appState.prefs.favorites.map(f => f.abbr.toLowerCase());
+        list = list.filter(a => {
+          const hay = `${a.headline} ${a.description} ${a.categories.join(' ')}`.toLowerCase();
+          return favNames.some(n => hay.includes(n)) || favAbbrs.some(ab => new RegExp(`\\b${ab}\\b`, 'i').test(hay));
+        });
+      } else if (appState.newsSportFilter !== 'ALL') {
+        list = list.filter(a => a.sport === appState.newsSportFilter);
+      }
+
+      if (list.length === 0) {
+        grid.innerHTML = `<div class="col-span-full bg-[#121826] border border-[#1a2234] rounded-2xl p-8 text-center text-xs text-slate-400">No headlines matched this filter. Try switching to <button onclick="setNewsSportFilter('ALL')" class="text-emerald-400 font-bold underline">All Wire</button>.</div>`;
+        return;
+      }
+
+      grid.innerHTML = list.map(art => {
+        const timeAgo = new Date(art.published).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
         return `
-          <tr class="hover:bg-[#141c2c] transition">
-            <td class="py-3 px-4">
-              <span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-[#1a2234] text-emerald-400 mr-1">${b.sport}</span>
-              <span class="font-bold text-white">${b.matchup}</span>
-            </td>
-            <td class="py-3 px-4">
-              <div class="font-extrabold text-white">${b.selection} <span class="text-[10px] font-normal text-slate-400">(${b.market})</span></div>
-              ${b.rationale ? `<div class="text-[11px] text-slate-400 truncate max-w-xs">${b.rationale}</div>` : ''}
-            </td>
-            <td class="py-3 px-4 font-mono">
-              <span class="px-1.5 py-0.5 rounded bg-[#1a2234] text-slate-200 font-bold">${b.book}</span>
-              <span class="text-slate-300 ml-1">${formatOdds(b.odds)}</span>
-            </td>
-            <td class="py-3 px-4 font-mono font-bold text-slate-200">${b.units.toFixed(2)}u</td>
-            <td class="py-3 px-4">
-              <select onchange="updateBetStatus('${b.id}', this.value)" class="bg-[#0b0f17] border border-[#243047] rounded-lg px-2 py-1 text-[11px] font-bold uppercase ${b.status === 'win' ? 'text-emerald-400' : b.status === 'loss' ? 'text-rose-400' : 'text-amber-300'}">
-                <option value="pending" ${b.status === 'pending' ? 'selected' : ''}>Pending</option>
-                <option value="win" ${b.status === 'win' ? 'selected' : ''}>Win</option>
-                <option value="loss" ${b.status === 'loss' ? 'selected' : ''}>Loss</option>
-                <option value="push" ${b.status === 'push' ? 'selected' : ''}>Push</option>
-              </select>
-            </td>
-            <td class="py-3 px-4 text-right font-mono font-extrabold ${netColor}">${netStr}</td>
-            <td class="py-3 px-4 text-right">
-              <button onclick="deleteBet('${b.id}')" class="text-slate-500 hover:text-rose-400 p-1" title="Delete Entry">✕</button>
-            </td>
-          </tr>
+          <a href="${art.link}" target="_blank" rel="noopener noreferrer" class="group bg-[#121826] border border-[#1a2234] hover:border-emerald-500/40 rounded-2xl overflow-hidden flex flex-col justify-between transition">
+            <div>
+              ${art.image ? `<div class="h-40 w-full overflow-hidden bg-[#0e131f]"><img src="${art.image}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" /></div>` : ''}
+              <div class="p-4 space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-[#1a2234] text-emerald-400">${art.sport}</span>
+                  <span class="text-[10px] font-mono text-slate-400">${timeAgo}</span>
+                </div>
+                <h3 class="text-sm font-extrabold text-white group-hover:text-emerald-300 transition leading-snug">${art.headline}</h3>
+                <p class="text-xs text-slate-400 line-clamp-3 leading-relaxed">${art.description}</p>
+              </div>
+            </div>
+            <div class="px-4 py-2.5 border-t border-[#1a2234] flex items-center justify-between text-[11px] font-bold text-slate-300">
+              <span>Read Full Report</span>
+              <span class="text-emerald-400">ESPN ↗</span>
+            </div>
+          </a>
         `;
       }).join('');
     }
