@@ -669,7 +669,6 @@
       const aliasesA = TEAM_ABBR_ALIASES[a] || [a];
       return aliasesA.includes(b);
     }
-    };
 
     const TEAM_DIRECTORY = {
       NFL: [
@@ -2188,9 +2187,6 @@
         }
         if (parsedTables.length > 0) game.playerBoxScore = parsedTables;
       }
-        }
-        if (statsList.length > 0) game.teamStats = statsList;
-      }
 
       // Extract Injuries
       const injuriesList = [];
@@ -3282,6 +3278,368 @@
               <span class="text-emerald-400">ESPN ↗</span>
             </div>
           </a>
+        `;
+      }).join('');
+    }
+
+    function setSportFilter(sport) {
+      appState.sportFilter = sport;
+      document.querySelectorAll('.sport-tab').forEach(btn => {
+        const active = btn.dataset.sport === sport;
+        if (active) {
+          btn.className = 'sport-tab px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-white text-slate-950';
+        } else if (btn.dataset.sport === 'MY_TEAMS') {
+          btn.className = 'sport-tab px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-[#121826] text-amber-300 border border-amber-500/30 hover:bg-[#1a2234]';
+        } else if (btn.dataset.sport === 'LIVE') {
+          btn.className = 'sport-tab px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-[#121826] text-rose-400 border border-rose-500/30 hover:bg-[#1a2234] flex items-center gap-1.5';
+        } else {
+          btn.className = 'sport-tab px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-[#121826] text-slate-300 hover:bg-[#1a2234]';
+        }
+      });
+      renderScoreboard();
+    }
+
+    function setDateFilter(dateBucket) {
+      appState.dateFilter = dateBucket;
+      document.querySelectorAll('.date-tab').forEach(btn => {
+        const active = btn.dataset.date === dateBucket;
+        btn.className = active
+          ? 'date-tab px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#1a2234] text-emerald-400 transition'
+          : 'date-tab px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-white transition';
+      });
+      renderScoreboard();
+    }
+
+    function toggleFilterFlag(flagName) {
+      appState[flagName] = !appState[flagName];
+      const map = {
+        recOnly: 'toggleRecOnly',
+        top25Only: 'toggleTop25',
+        powerConfOnly: 'togglePowerConf',
+      };
+      const el = document.getElementById(map[flagName]);
+      if (el) {
+        el.className = appState[flagName]
+          ? 'px-2.5 py-1 rounded-xl text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition whitespace-nowrap'
+          : 'px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-[#121826] text-slate-400 border border-[#1a2234] hover:text-white transition whitespace-nowrap';
+      }
+      renderScoreboard();
+    }
+
+    function resetFilters() {
+      appState.sportFilter = 'ALL';
+      appState.dateFilter = 'all';
+      appState.recOnly = false;
+      appState.top25Only = false;
+      appState.powerConfOnly = false;
+      setSportFilter('ALL');
+      setDateFilter('all');
+      ['toggleRecOnly', 'toggleTop25', 'togglePowerConf'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.className = 'px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-[#121826] text-slate-400 border border-[#1a2234] hover:text-white transition whitespace-nowrap';
+        }
+      });
+      renderScoreboard();
+    }
+
+    function toggleDensityMode() {
+      appState.prefs.density = appState.prefs.density === 'compact' ? 'full' : 'compact';
+      persistPrefs();
+      renderScoreboard();
+      showToast(appState.prefs.density === 'compact' ? 'Compact Scoreboard Mode' : 'Full Handicapping Mode');
+    }
+
+    /****************************************************************************
+     * 11. SETTINGS & FAVORITE TEAMS DRAWER
+     ****************************************************************************/
+    function openSettingsDrawer() {
+      document.getElementById('settingsModal').classList.remove('hidden');
+      document.getElementById('strictLiveOnlyInput').checked = Boolean(appState.prefs.strictLiveOnly);
+      document.getElementById('unitSizeInput').value = appState.prefs.unitSize || 100;
+      document.getElementById('defaultDensitySelect').value = appState.prefs.density || 'full';
+      renderSettingsFavoritesList();
+      populateTeamDropdown();
+    }
+
+    function closeSettingsDrawer() {
+      document.getElementById('settingsModal').classList.add('hidden');
+    }
+
+    function renderSettingsFavoritesList() {
+      const container = document.getElementById('settingsFavList');
+      if (!container) return;
+      container.innerHTML = appState.prefs.favorites.map((fav, idx) => `
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#121826] border border-amber-500/35 text-xs font-bold text-white">
+          ${renderTeamLogo(fav.sport, fav.abbr, 'w-4 h-4')}
+          <span>${fav.name}</span>
+          <span class="text-[10px] font-mono text-slate-400">(${fav.sport})</span>
+          <button onclick="removeFavoriteTeam(${idx})" class="text-slate-400 hover:text-rose-400 ml-1 font-black">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function populateTeamDropdown() {
+      const sport = document.getElementById('favSportSelect').value;
+      const teamSelect = document.getElementById('favTeamSelect');
+      const list = TEAM_DIRECTORY[sport] || [];
+      teamSelect.innerHTML = list.map(t => `<option value="${t.abbr}">${t.name} (${t.abbr})</option>`).join('');
+    }
+
+    function addSelectedFavoriteTeam() {
+      const sport = document.getElementById('favSportSelect').value;
+      const abbr = document.getElementById('favTeamSelect').value;
+      const meta = getTeamMeta(sport, abbr);
+      if (!meta) return;
+
+      const exists = appState.prefs.favorites.some(f => f.sport === sport && teamAbbrMatches(f.abbr, abbr));
+      if (exists) {
+        showToast(`${meta.name} is already pinned`);
+        return;
+      }
+      appState.prefs.favorites.push({ sport, abbr: meta.abbr, name: meta.name });
+      persistPrefs();
+      renderSettingsFavoritesList();
+      syncAllData(true);
+      showToast(`Pinned ${meta.name}`);
+    }
+
+    function removeFavoriteTeam(idx) {
+      const removed = appState.prefs.favorites.splice(idx, 1)[0];
+      persistPrefs();
+      renderSettingsFavoritesList();
+      renderAll();
+      if (removed) showToast(`Unpinned ${removed.name}`);
+    }
+
+    function saveSettings() {
+      appState.prefs.strictLiveOnly = document.getElementById('strictLiveOnlyInput').checked;
+      appState.prefs.unitSize = Math.max(1, Number(document.getElementById('unitSizeInput').value) || 100);
+      appState.prefs.density = document.getElementById('defaultDensitySelect').value || 'full';
+      persistPrefs();
+      closeSettingsDrawer();
+      syncAllData(true);
+      showToast('Preferences saved');
+    }
+
+    function clearApiCacheAndSync() {
+      try {
+        localStorage.removeItem(STORAGE_KEYS.CACHE);
+      } catch (e) { /* ignore */ }
+      closeSettingsDrawer();
+      syncAllData(true);
+    }
+
+    /****************************************************************************
+     * 12. PERSONAL BET TRACKER ("MY RECORD") & + LOG PLAY MODAL
+     ****************************************************************************/
+    function openLogPlayModal(prefill = null) {
+      document.getElementById('logPlayModal').classList.remove('hidden');
+      if (prefill) {
+        document.getElementById('lpSport').value = prefill.sport || 'NFL';
+        document.getElementById('lpMatchup').value = prefill.matchup || '';
+        document.getElementById('lpMarket').value = prefill.market || 'Spread';
+        document.getElementById('lpSelection').value = prefill.selection || '';
+        document.getElementById('lpBook').value = prefill.book || 'DK';
+        document.getElementById('lpOdds').value = prefill.odds || -110;
+        document.getElementById('lpUnits').value = prefill.units || 1.0;
+        document.getElementById('lpRationale').value = prefill.rationale || '';
+      }
+    }
+
+    function closeLogPlayModal() {
+      document.getElementById('logPlayModal').classList.add('hidden');
+    }
+
+    function quickLogPlay(sport, matchup, market, selection, book, odds, rationale) {
+      openLogPlayModal({ sport, matchup, market, selection, book, odds, units: 1.0, rationale });
+    }
+
+    function submitLoggedPlay(e) {
+      e.preventDefault();
+      const bet = {
+        id: 'bet-' + Date.now(),
+        createdAt: new Date().toISOString(),
+        sport: document.getElementById('lpSport').value,
+        matchup: document.getElementById('lpMatchup').value.trim(),
+        market: document.getElementById('lpMarket').value,
+        selection: document.getElementById('lpSelection').value.trim(),
+        book: document.getElementById('lpBook').value,
+        odds: Number(document.getElementById('lpOdds').value) || -110,
+        units: Math.max(0.1, Number(document.getElementById('lpUnits').value) || 1.0),
+        rationale: document.getElementById('lpRationale').value.trim(),
+        status: 'pending',
+      };
+      appState.bets.unshift(bet);
+      persistBets();
+      updateHeaderTelemetry();
+      closeLogPlayModal();
+      if (appState.activeMainView === 'record') renderRecordView();
+      showToast(`Logged ${bet.selection} (${bet.units}u)`);
+    }
+
+    function setBetFilter(filter) {
+      appState.betFilter = filter;
+      document.querySelectorAll('.bet-filter-btn').forEach(btn => {
+        const active = btn.dataset.bfilter === filter;
+        btn.className = active
+          ? 'bet-filter-btn px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500 text-slate-950'
+          : 'bet-filter-btn px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#1a2234] text-slate-300';
+      });
+      renderRecordView();
+    }
+
+    function updateBetStatus(id, status) {
+      const bet = appState.bets.find(b => b.id === id);
+      if (!bet) return;
+      bet.status = status;
+      persistBets();
+      updateHeaderTelemetry();
+      renderRecordView();
+      showToast(`Marked play as ${status.toUpperCase()}`);
+    }
+
+    function deleteBet(id) {
+      appState.bets = appState.bets.filter(b => b.id !== id);
+      persistBets();
+      updateHeaderTelemetry();
+      renderRecordView();
+      showToast('Play removed');
+    }
+
+    function calculateBetNetUnits(bet) {
+      if (bet.status === 'pending' || bet.status === 'push') return 0;
+      if (bet.status === 'loss') return -Number(bet.units || 0);
+      const o = Number(bet.odds || -110);
+      const u = Number(bet.units || 1);
+      return o > 0 ? u * (o / 100) : u * (100 / Math.abs(o));
+    }
+
+    function renderRecordView() {
+      const unitSize = Number(appState.prefs.unitSize) || 100;
+      document.getElementById('unitSizeDisplay').textContent = `$${unitSize}`;
+
+      let netUnits = 0;
+      let pendingUnits = 0;
+      let riskedUnits = 0;
+      let wins = 0;
+      let losses = 0;
+      let pushes = 0;
+
+      const sportUnits = { NFL: 0, NHL: 0, NCAAF: 0, MLB: 0 };
+      const marketStats = {};
+
+      for (const b of appState.bets) {
+        const u = Number(b.units || 0);
+        const net = calculateBetNetUnits(b);
+        netUnits += net;
+        if (sportUnits[b.sport] !== undefined) sportUnits[b.sport] += net;
+
+        if (!marketStats[b.market]) marketStats[b.market] = { wins: 0, losses: 0, units: 0 };
+        marketStats[b.market].units += net;
+
+        if (b.status === 'pending') {
+          pendingUnits += u;
+        } else {
+          riskedUnits += u;
+          if (b.status === 'win') {
+            wins++;
+            marketStats[b.market].wins++;
+          } else if (b.status === 'loss') {
+            losses++;
+            marketStats[b.market].losses++;
+          } else if (b.status === 'push') {
+            pushes++;
+          }
+        }
+      }
+
+      const netProfit = netUnits * unitSize;
+      const roi = riskedUnits > 0 ? (netUnits / riskedUnits) * 100 : 0;
+      const decisions = wins + losses;
+      const winRate = decisions > 0 ? (wins / decisions) * 100 : 0;
+
+      const netUnitsEl = document.getElementById('kpiNetUnits');
+      netUnitsEl.textContent = `${netUnits >= 0 ? '+' : ''}${netUnits.toFixed(2)}u`;
+      netUnitsEl.className = `text-2xl sm:text-3xl font-black font-mono mt-1 ${netUnits >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      const netProfitEl = document.getElementById('kpiNetProfit');
+      netProfitEl.textContent = `${netProfit >= 0 ? '+' : '-'}$${Math.abs(Math.round(netProfit)).toLocaleString()}`;
+      netProfitEl.className = `text-2xl sm:text-3xl font-black font-mono mt-1 ${netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      document.getElementById('kpiPendingUnits').textContent = `${pendingUnits.toFixed(2)}u pending`;
+      document.getElementById('kpiRoi').textContent = `ROI: ${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%`;
+      document.getElementById('kpiWinRate').textContent = `${winRate.toFixed(1)}%`;
+      document.getElementById('kpiRecordWLP').textContent = `${wins}-${losses}-${pushes}`;
+      document.getElementById('kpiTotalBets').textContent = `${appState.bets.length} logged plays`;
+
+      // Market split breakdown
+      const mktEl = document.getElementById('marketSplitBreakdown');
+      const mktEntries = Object.entries(marketStats);
+      mktEl.innerHTML = mktEntries.length > 0 ? mktEntries.map(([mkt, st]) => `
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#0e131f] border border-[#1a2234]">
+          <div>
+            <div class="font-bold text-white">${mkt}</div>
+            <div class="text-[11px] font-mono text-slate-400">${st.wins}-${st.losses}</div>
+          </div>
+          <span class="font-mono font-extrabold ${st.units >= 0 ? 'text-emerald-400' : 'text-rose-400'}">
+            ${st.units >= 0 ? '+' : ''}${st.units.toFixed(2)}u
+          </span>
+        </div>
+      `).join('') : '<p class="text-slate-400">No plays logged yet.</p>';
+
+      renderSportChart(sportUnits);
+
+      // Table rows
+      const tbody = document.getElementById('betHistoryTableBody');
+      const filteredBets = appState.betFilter === 'ALL'
+        ? appState.bets
+        : appState.bets.filter(b => b.status === appState.betFilter);
+
+      if (filteredBets.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">No plays match this status filter.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filteredBets.map(b => {
+        const net = calculateBetNetUnits(b);
+        const statusBadge = {
+          pending: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+          win: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+          loss: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
+          push: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+        }[b.status] || '';
+
+        return `
+          <tr class="hover:bg-[#141c2c] transition">
+            <td class="py-3 px-4">
+              <span class="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-[#1a2234] text-emerald-400">${b.sport}</span>
+              <div class="font-bold text-white mt-1">${b.matchup}</div>
+            </td>
+            <td class="py-3 px-4">
+              <div class="font-extrabold text-amber-300">${b.selection} <span class="text-[10px] font-normal text-slate-400">(${b.market})</span></div>
+              <div class="text-[11px] text-slate-400 max-w-xs truncate">${b.rationale || '—'}</div>
+            </td>
+            <td class="py-3 px-4 font-mono">
+              <span class="font-bold text-white">${b.book}</span>
+              <span class="text-slate-400 ml-1">${formatOdds(b.odds)}</span>
+            </td>
+            <td class="py-3 px-4 font-mono font-bold text-slate-200">${Number(b.units).toFixed(2)}u</td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase border ${statusBadge}">${b.status}</span>
+            </td>
+            <td class="py-3 px-4 text-right font-mono font-extrabold ${net > 0 ? 'text-emerald-400' : net < 0 ? 'text-rose-400' : 'text-slate-400'}">
+              ${b.status === 'pending' ? '—' : `${net >= 0 ? '+' : ''}${net.toFixed(2)}u`}
+            </td>
+            <td class="py-3 px-4 text-right whitespace-nowrap">
+              <div class="inline-flex items-center gap-1">
+                <button onclick="updateBetStatus('${b.id}', 'win')" class="px-2 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 font-bold text-[10px]" title="Mark Win">W</button>
+                <button onclick="updateBetStatus('${b.id}', 'loss')" class="px-2 py-1 rounded bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white font-bold text-[10px]" title="Mark Loss">L</button>
+                <button onclick="updateBetStatus('${b.id}', 'push')" class="px-2 py-1 rounded bg-[#1a2234] hover:bg-slate-600 text-slate-300 font-bold text-[10px]" title="Mark Push">P</button>
+                <button onclick="deleteBet('${b.id}')" class="px-2 py-1 rounded bg-[#1a2234] hover:bg-rose-600 text-slate-400 hover:text-white font-bold text-[10px]" title="Delete">✕</button>
+              </div>
+            </td>
+          </tr>
         `;
       }).join('');
     }
